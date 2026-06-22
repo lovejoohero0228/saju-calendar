@@ -1,16 +1,10 @@
+import { calculateFourPillars } from "manseryeok";
+
 import { purposeLabels } from "@/constants/purposes";
 import type { FortuneDay, FortuneLevel, FortuneProvider, FortunePurpose } from "@/types/fortune";
 import type { SajuElement, UserProfile } from "@/types/profile";
 import { seededPick, seededScore } from "./hash";
 import { realSajuProvider } from "./sajuEngine";
-
-declare const require: (path: string) => any;
-
-const { computeFourPillars } = require("../../node_modules/manseryeok/dist/pillars.js");
-const { resolveInstant } = require("../../node_modules/manseryeok/dist/time/true-solar-time.js");
-const { getHeavenlyStemElement, getEarthlyBranchElement } = require(
-  "../../node_modules/manseryeok/dist/elements.js"
-);
 
 const elementMap: Record<string, SajuElement> = {
   목: "wood",
@@ -46,8 +40,6 @@ const TRAVEL_BRANCHES = ["인", "신", "사", "해"];
 
 type DatePillars = {
   dayStemElement: SajuElement;
-  dayBranchElement: SajuElement;
-  dayBranch: string;
   stemElements: SajuElement[];
   branchElements: SajuElement[];
   branches: string[];
@@ -59,25 +51,14 @@ function computeDatePillars(dateKey: string): DatePillars {
   const month = Number.parseInt(monthText, 10);
   const day = Number.parseInt(dayText, 10);
 
-  const resolved = resolveInstant(year, month, day, 12, 0);
-  const pillars = computeFourPillars(resolved, year, "midnight");
-
-  const allStems = [pillars.year, pillars.month, pillars.day, pillars.hour].map(
-    (pillar: { heavenlyStem: string }) => mapElementName(getHeavenlyStemElement(pillar.heavenlyStem))
-  );
-  const allBranchNames = [pillars.year, pillars.month, pillars.day, pillars.hour].map(
-    (pillar: { earthlyBranch: string }) => pillar.earthlyBranch
-  );
+  const result = calculateFourPillars({ year, month, day, hour: 12, minute: 0, dayBoundary: "midnight" });
+  const elementPairs = [result.yearElement, result.monthElement, result.dayElement, result.hourElement];
 
   return {
-    dayStemElement: mapElementName(getHeavenlyStemElement(pillars.day.heavenlyStem)),
-    dayBranchElement: mapElementName(getEarthlyBranchElement(pillars.day.earthlyBranch)),
-    dayBranch: pillars.day.earthlyBranch,
-    stemElements: allStems,
-    branchElements: allBranchNames.map((branch: string) =>
-      mapElementName(getEarthlyBranchElement(branch))
-    ),
-    branches: allBranchNames
+    dayStemElement: mapElementName(result.dayElement.stem),
+    stemElements: elementPairs.map((pair) => mapElementName(pair.stem)),
+    branchElements: elementPairs.map((pair) => mapElementName(pair.branch)),
+    branches: [result.year, result.month, result.day, result.hour].map((pillar) => pillar.earthlyBranch)
   };
 }
 

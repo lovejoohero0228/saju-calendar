@@ -1,9 +1,8 @@
+import { getBranchTenGod, getTenGod } from "manseryeok";
+import type { EarthlyBranch, HeavenlyStem } from "manseryeok";
+
 import { realSajuProvider } from "@/lib/sajuEngine";
 import type { SajuChart, SajuPillar, UserProfile } from "@/types/profile";
-
-declare const require: (path: string) => any;
-
-const { getTenGod, getBranchTenGod } = require("../../node_modules/manseryeok/dist/features/ten-gods.js");
 
 const hiddenStemMap: Record<string, string[]> = {
   자: ["계"],
@@ -154,8 +153,8 @@ export function getSajuDetail(profile: UserProfile): SajuDetail {
     return {
       ...column,
       pillar,
-      stemGod: getTenGod(dayStem, pillar.heavenlyStem),
-      branchGod: getBranchTenGod(dayStem, pillar.earthlyBranch),
+      stemGod: getTenGod(dayStem as HeavenlyStem, pillar.heavenlyStem as HeavenlyStem),
+      branchGod: getBranchTenGod(dayStem as HeavenlyStem, pillar.earthlyBranch as EarthlyBranch),
       hiddenStems: getHiddenStems(pillar.earthlyBranch),
       twelveLife: getTwelveLife(dayStem, pillar.earthlyBranch),
       twelveSpirit: getTwelveSpirit(yearBranch, pillar.earthlyBranch)

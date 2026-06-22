@@ -1,14 +1,8 @@
+import { calculateFourPillars } from "manseryeok";
+import type { ElementPair, Pillar, YinYangPair } from "manseryeok";
+
 import type { SajuProvider } from "@/types/fortune";
 import type { SajuChart, SajuElement, SajuPillar, UserProfile } from "@/types/profile";
-
-declare const require: (path: string) => any;
-
-const { computeFourPillars } = require("../../node_modules/manseryeok/dist/pillars.js");
-const { resolveInstant } = require("../../node_modules/manseryeok/dist/time/true-solar-time.js");
-const { lunarToSolar } = require("../../node_modules/manseryeok/dist/calendar/convert.js");
-const { getHeavenlyStemElement, getHeavenlyStemYinYang, getEarthlyBranchElement } = require(
-  "../../node_modules/manseryeok/dist/elements.js"
-);
 
 const elementMap: Record<string, SajuElement> = {
   목: "wood",
@@ -87,29 +81,20 @@ function toBirthInput(profile: UserProfile): BirthInput {
   };
 }
 
-function normalizeFourPillars(raw: any) {
-  return {
-    year: raw.year,
-    month: raw.month,
-    day: raw.day,
-    hour: raw.hour
-  };
-}
-
 function mapElementName(name: string): SajuElement {
   return elementMap[name] ?? "earth";
 }
 
-function toPillar(pillar: { heavenlyStem: string; earthlyBranch: string }): SajuPillar {
+function toPillar(pillar: Pillar, element: ElementPair, yinYang: YinYangPair): SajuPillar {
   return {
     heavenlyStem: pillar.heavenlyStem,
     earthlyBranch: pillar.earthlyBranch,
-    element: mapElementName(getHeavenlyStemElement(pillar.heavenlyStem)),
-    yinYang: getHeavenlyStemYinYang(pillar.heavenlyStem) === "양" ? "yang" : "yin"
+    element: mapElementName(element.stem),
+    yinYang: yinYang.stem === "양" ? "yang" : "yin"
   };
 }
 
-function buildElementBalance(fourPillars: { year: SajuPillar; month: SajuPillar; day: SajuPillar; hour: SajuPillar }) {
+function buildElementBalance(elementPairs: ElementPair[]) {
   const counts: Record<SajuElement, number> = {
     wood: 0,
     fire: 0,
@@ -118,22 +103,9 @@ function buildElementBalance(fourPillars: { year: SajuPillar; month: SajuPillar;
     water: 0
   };
 
-  [
-    fourPillars.year.heavenlyStem,
-    fourPillars.month.heavenlyStem,
-    fourPillars.day.heavenlyStem,
-    fourPillars.hour.heavenlyStem
-  ].forEach((stem) => {
-    counts[mapElementName(getHeavenlyStemElement(stem))] += 1;
-  });
-
-  [
-    fourPillars.year.earthlyBranch,
-    fourPillars.month.earthlyBranch,
-    fourPillars.day.earthlyBranch,
-    fourPillars.hour.earthlyBranch
-  ].forEach((branch) => {
-    counts[mapElementName(getEarthlyBranchElement(branch))] += 1;
+  elementPairs.forEach(({ stem, branch }) => {
+    counts[mapElementName(stem)] += 1;
+    counts[mapElementName(branch)] += 1;
   });
 
   const total = 8;
@@ -157,31 +129,31 @@ function summarizeChart(chart: { day: SajuPillar; elementBalance: Record<SajuEle
 
 function computeChart(profile: UserProfile) {
   const input = toBirthInput(profile);
-
-  let year = input.year;
-  let month = input.month;
-  let day = input.day;
-
-  if (input.isLunar) {
-    const solar = lunarToSolar(year, month, day, false);
-    year = solar.year;
-    month = solar.month;
-    day = solar.day;
-  }
-
-  const resolved = resolveInstant(year, month, day, input.hour, input.minute);
-  const rawPillars = normalizeFourPillars(computeFourPillars(resolved, year, input.dayBoundary));
+  const result = calculateFourPillars({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    minute: input.minute,
+    isLunar: input.isLunar,
+    dayBoundary: input.dayBoundary
+  });
 
   const chart = {
-    year: toPillar(rawPillars.year),
-    month: toPillar(rawPillars.month),
-    day: toPillar(rawPillars.day),
-    hour: toPillar(rawPillars.hour)
+    year: toPillar(result.year, result.yearElement, result.yearYinYang),
+    month: toPillar(result.month, result.monthElement, result.monthYinYang),
+    day: toPillar(result.day, result.dayElement, result.dayYinYang),
+    hour: toPillar(result.hour, result.hourElement, result.hourYinYang)
   };
 
   return {
     ...chart,
-    elementBalance: buildElementBalance(chart),
+    elementBalance: buildElementBalance([
+      result.yearElement,
+      result.monthElement,
+      result.dayElement,
+      result.hourElement
+    ]),
     summary: ""
   };
 }
