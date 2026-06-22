@@ -10,7 +10,6 @@ import { GradientButton } from "@/components/GradientButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { colors } from "@/constants/colors";
 import { mockFortuneProvider } from "@/lib/fortuneEngine";
-import { seededScore } from "@/lib/hash";
 import { todayKey } from "@/lib/date";
 import type { UserProfile } from "@/types/profile";
 
@@ -31,10 +30,10 @@ export function HomeScreen({ profile, goCalendar }: Props) {
   const today = todayKey();
   const fortune = mockFortuneProvider.getDayFortune(profile, today, "travel");
   const scores = [
-    { label: "금전", value: 48 + (seededScore(`${today}:money:${profile.id}`) % 45), color: colors.accentYellow },
-    { label: "연애", value: 44 + (seededScore(`${today}:love:${profile.id}`) % 48), color: colors.accentPink },
-    { label: "직장", value: 50 + (seededScore(`${today}:work:${profile.id}`) % 42), color: colors.accentBlue },
-    { label: "건강", value: 45 + (seededScore(`${today}:health:${profile.id}`) % 44), color: colors.accentGreen }
+    { label: "금전", value: mockFortuneProvider.getDayFortune(profile, today, "lottery").score, color: colors.accentYellow },
+    { label: "연애", value: mockFortuneProvider.getDayFortune(profile, today, "confession").score, color: colors.accentPink },
+    { label: "직장", value: mockFortuneProvider.getDayFortune(profile, today, "meeting").score, color: colors.accentBlue },
+    { label: "건강", value: mockFortuneProvider.getDayFortune(profile, today, "travel").score, color: colors.accentGreen }
   ];
 
   return (

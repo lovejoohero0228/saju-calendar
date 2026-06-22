@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { UserProfile } from "@/types/profile";
+import type { RelationshipProfile, UserProfile } from "@/types/profile";
 
 const PROFILE_KEY = "saju.profile.v1";
 const COOKIE_PREFIX = "saju.cookie.";
+const RELATIONSHIPS_KEY = "saju.relationships.v1";
 
 export async function loadProfile(): Promise<UserProfile | null> {
   const raw = await AsyncStorage.getItem(PROFILE_KEY);
@@ -20,4 +21,13 @@ export async function loadDailyCookie(dateKey: string): Promise<string | null> {
 
 export async function saveDailyCookie(dateKey: string, message: string): Promise<void> {
   await AsyncStorage.setItem(`${COOKIE_PREFIX}${dateKey}`, message);
+}
+
+export async function loadRelationships(): Promise<RelationshipProfile[]> {
+  const raw = await AsyncStorage.getItem(RELATIONSHIPS_KEY);
+  return raw ? (JSON.parse(raw) as RelationshipProfile[]) : [];
+}
+
+export async function saveRelationships(list: RelationshipProfile[]): Promise<void> {
+  await AsyncStorage.setItem(RELATIONSHIPS_KEY, JSON.stringify(list));
 }

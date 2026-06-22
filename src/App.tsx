@@ -66,7 +66,7 @@ function Root() {
       {tab === "home" ? <HomeScreen profile={profile} goCalendar={() => setTab("calendar")} /> : null}
       {tab === "calendar" ? <CalendarScreen profile={profile} /> : null}
       {tab === "relationships" ? <RelationshipsScreen profile={profile} /> : null}
-      {tab === "leaderboard" ? <LeaderboardScreen /> : null}
+      {tab === "leaderboard" ? <LeaderboardScreen profile={profile} /> : null}
       {tab === "my" ? <MyPageScreen profile={profile} onEdit={startProfileEdit} /> : null}
       {tab === "playground" ? <DevPlaygroundScreen profile={profile} onApply={setProfile} /> : null}
       <BottomTabs activeTab={tab} onChange={setTab} />

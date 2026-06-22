@@ -1,7 +1,159 @@
 import { purposeLabels } from "@/constants/purposes";
 import type { FortuneDay, FortuneLevel, FortuneProvider, FortunePurpose } from "@/types/fortune";
-import type { UserProfile } from "@/types/profile";
+import type { SajuElement, UserProfile } from "@/types/profile";
 import { seededPick, seededScore } from "./hash";
+import { realSajuProvider } from "./sajuEngine";
+
+declare const require: (path: string) => any;
+
+const { computeFourPillars } = require("../../node_modules/manseryeok/dist/pillars.js");
+const { resolveInstant } = require("../../node_modules/manseryeok/dist/time/true-solar-time.js");
+const { getHeavenlyStemElement, getEarthlyBranchElement } = require(
+  "../../node_modules/manseryeok/dist/elements.js"
+);
+
+const elementMap: Record<string, SajuElement> = {
+  목: "wood",
+  화: "fire",
+  토: "earth",
+  금: "metal",
+  수: "water"
+};
+
+function mapElementName(name: string): SajuElement {
+  return elementMap[name] ?? "earth";
+}
+
+// 목(木) → 화(火) → 토(土) → 금(金) → 수(水) → 목(木) 상생
+// 목극토, 토극수, 수극화, 화극금, 금극목 상극
+const GENERATES: Record<SajuElement, SajuElement> = {
+  wood: "fire",
+  fire: "earth",
+  earth: "metal",
+  metal: "water",
+  water: "wood"
+};
+const CONTROLS: Record<SajuElement, SajuElement> = {
+  wood: "earth",
+  fire: "metal",
+  earth: "water",
+  metal: "wood",
+  water: "fire"
+};
+
+// 역마살 지지 (인·신·사·해)
+const TRAVEL_BRANCHES = ["인", "신", "사", "해"];
+
+type DatePillars = {
+  dayStemElement: SajuElement;
+  dayBranchElement: SajuElement;
+  dayBranch: string;
+  stemElements: SajuElement[];
+  branchElements: SajuElement[];
+  branches: string[];
+};
+
+function computeDatePillars(dateKey: string): DatePillars {
+  const [yearText, monthText, dayText] = dateKey.split("-");
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+
+  const resolved = resolveInstant(year, month, day, 12, 0);
+  const pillars = computeFourPillars(resolved, year, "midnight");
+
+  const allStems = [pillars.year, pillars.month, pillars.day, pillars.hour].map(
+    (pillar: { heavenlyStem: string }) => mapElementName(getHeavenlyStemElement(pillar.heavenlyStem))
+  );
+  const allBranchNames = [pillars.year, pillars.month, pillars.day, pillars.hour].map(
+    (pillar: { earthlyBranch: string }) => pillar.earthlyBranch
+  );
+
+  return {
+    dayStemElement: mapElementName(getHeavenlyStemElement(pillars.day.heavenlyStem)),
+    dayBranchElement: mapElementName(getEarthlyBranchElement(pillars.day.earthlyBranch)),
+    dayBranch: pillars.day.earthlyBranch,
+    stemElements: allStems,
+    branchElements: allBranchNames.map((branch: string) =>
+      mapElementName(getEarthlyBranchElement(branch))
+    ),
+    branches: allBranchNames
+  };
+}
+
+function relationScore(userElement: SajuElement, dateElement: SajuElement): number {
+  if (GENERATES[dateElement] === userElement) return 15; // 날짜 오행이 일간을 생조
+  if (userElement === dateElement) return 8;
+  if (CONTROLS[dateElement] === userElement) return -12; // 날짜 오행이 일간을 극
+  return 0;
+}
+
+function purposeBonus(
+  profile: UserProfile,
+  userDayElement: SajuElement,
+  date: DatePillars,
+  dateKey: string,
+  purpose: FortunePurpose
+): number {
+  switch (purpose) {
+    case "travel":
+    case "friendHangout":
+      return date.branches.some((branch) => TRAVEL_BRANCHES.includes(branch)) ? 8 : 0;
+    case "lottery":
+    case "spending": {
+      // 재성: 일간이 극하는 오행
+      const wealth = CONTROLS[userDayElement];
+      const hasWealth =
+        date.stemElements.includes(wealth) || date.branchElements.includes(wealth);
+      return hasWealth ? 10 : 0;
+    }
+    case "avoidBoss": {
+      // 관살: 일간을 극하는 오행
+      const officer = (Object.keys(CONTROLS) as SajuElement[]).find(
+        (key) => CONTROLS[key] === userDayElement
+      );
+      const hasOfficer =
+        !!officer &&
+        (date.stemElements.includes(officer) || date.branchElements.includes(officer));
+      return hasOfficer ? -10 : 0;
+    }
+    case "confession":
+    case "deepTalk": {
+      // 식상: 일간이 생하는 오행
+      const output = GENERATES[userDayElement];
+      const hasOutput =
+        date.stemElements.includes(output) || date.branchElements.includes(output);
+      return hasOutput ? 8 : 0;
+    }
+    default:
+      return (seededScore(`${dateKey}:${purpose}:bonus`) % 11) - 5;
+  }
+}
+
+function computeSajuFortuneScore(
+  profile: UserProfile,
+  dateKey: string,
+  purpose: FortunePurpose
+): number {
+  const chart = realSajuProvider.getChart(profile);
+  const userDayElement = chart.day.element;
+  const date = computeDatePillars(dateKey);
+
+  let score = 50;
+  score += relationScore(userDayElement, date.dayStemElement);
+
+  // 용신(가장 약한 오행)이 날짜 천간에 있으면 +10
+  const weakest = (Object.entries(chart.elementBalance) as Array<[SajuElement, number]>).sort(
+    (left, right) => left[1] - right[1]
+  )[0][0];
+  if (date.stemElements.includes(weakest)) {
+    score += 10;
+  }
+
+  score += purposeBonus(profile, userDayElement, date, dateKey, purpose);
+
+  return Math.max(15, Math.min(95, Math.round(score)));
+}
 
 export function scoreToLevel(score: number): FortuneLevel {
   if (score >= 85) return "excellent";
@@ -76,8 +228,13 @@ const luckyColors = ["라벤더", "스카이블루", "민트", "크림 옐로", 
 
 export const mockFortuneProvider: FortuneProvider = {
   getDayFortune(profile: UserProfile, date: string, purpose: FortunePurpose): FortuneDay {
-    const base = seededScore(`${profile.id}:${profile.birthDate}:${date}:${purpose}`);
-    const score = Math.max(12, Math.min(96, base));
+    let score: number;
+    try {
+      score = computeSajuFortuneScore(profile, date, purpose);
+    } catch {
+      const base = seededScore(`${profile.id}:${profile.birthDate}:${date}:${purpose}`);
+      score = Math.max(12, Math.min(96, base));
+    }
     const level = scoreToLevel(score);
     const tone = purposeTone[purpose];
 
