@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Saju Fortune Calendar",
+    "slug": "saju-fortune-calendar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "sajucalendar",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#111331"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
